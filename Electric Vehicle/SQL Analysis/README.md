@@ -286,3 +286,170 @@ ORDER BY
     CAGR DESC
 LIMIT 10;
 ```
+
+### Question 8 : What are the peak and low season months for EV sales based on the data from 2022 to 2024?
+
+```sql
+SELECT
+    dd.fiscal_year,
+    MONTH(dd.date) AS month,
+    SUM(evsbm.electric_vehicles_sold) AS total_units_sold
+FROM
+    electric_vehicle.electric_vehicle_sales_by_state evsbm
+JOIN electric_vehicle.dim_date dd
+ON evsbm.date = dd.date
+WHERE
+    dd.fiscal_year BETWEEN 2022 AND 2024
+GROUP BY
+    dd.fiscal_year,
+    MONTH(dd.date)
+ORDER BY
+    fiscal_year,
+    month;
+```
+
+### Question 9 : What is the projected number of EV sales (including 2-wheelers and 4-wheelers) for the top 10 states by penetration rate in 2030, based on the compounded annual growth rate (CAGR) from previous years?
+
+```sql
+WITH PenetrationRateByState AS (
+    SELECT
+        state,
+        (SUM(electric_vehicles_sold) * 100.0 / SUM(total_vehicles_sold)) AS PenetrationRate
+    FROM 
+        electric_vehicle.electric_vehicle_sales_by_state 
+    GROUP BY 
+        state
+    ORDER BY 
+        PenetrationRate DESC
+    LIMIT 10
+),
+SalesData AS (
+    SELECT
+        evsbm.state,
+        dd.fiscal_year,
+        SUM(evsbm.electric_vehicles_sold) AS total_sales
+    FROM
+        electric_vehicle.electric_vehicle_sales_by_state evsbm
+    JOIN 
+        electric_vehicle.dim_date dd ON evsbm.date = dd.date
+    WHERE
+        dd.fiscal_year IN (2022, 2024)
+        AND evsbm.state IN (SELECT state FROM PenetrationRateByState)
+    GROUP BY 
+        evsbm.state, dd.fiscal_year
+),
+YearlySales AS (
+    SELECT
+        state,
+        SUM(CASE WHEN fiscal_year = 2022 THEN total_sales END) AS units_2022,
+        SUM(CASE WHEN fiscal_year = 2024 THEN total_sales END) AS units_2024
+    FROM
+        SalesData
+    GROUP BY
+        state
+),
+CAGR_Calculation AS (
+    SELECT
+        state,
+        units_2022,
+        units_2024,
+        CASE
+            WHEN units_2022 = 0 THEN NULL
+            ELSE (POWER((units_2024 / units_2022), (1.0 / (2024 - 2022))) - 1) * 100
+        END AS CAGR
+    FROM
+        YearlySales
+),
+Projected_EV_Sales_2030 AS (
+    SELECT
+        state,
+        ROUND(units_2024 * POWER(1 + (CAGR / 100), 2030 - 2024)) AS Proj_EV_sales_2030
+    FROM
+        CAGR_Calculation
+    WHERE 
+        CAGR IS NOT NULL
+)
+SELECT 
+    p.state,
+    p.Proj_EV_sales_2030,
+    pr.PenetrationRate
+FROM 
+    Projected_EV_Sales_2030 p
+JOIN 
+    PenetrationRateByState pr ON p.state = pr.state
+ORDER BY 
+    p.Proj_EV_sales_2030 DESC;
+```
+
+### Question 10 : Estimate the revenue growth rate of 4-wheeler and 2-wheelers EVs in India for 2022 vs 2024 and 2023 vs 2024, assuming an average unit price.
+
+![image](https://github.com/user-attachments/assets/0f74c25c-37fc-4097-9c95-27166989d354)
+
+```sql
+ First, calculate the total revenue for each state and year
+WITH RevenueByStateYear AS (
+    SELECT
+        d.fiscal_year,
+        e.state,
+        SUM(CASE 
+                WHEN e.vehicle_category = '2-Wheelers' THEN e.electric_vehicles_sold * 85000
+                WHEN e.vehicle_category = '4-Wheelers' THEN e.electric_vehicles_sold * 1500000
+            END) AS total_revenue
+    FROM
+        electric_vehicle.electric_vehicle_sales_by_state e
+    JOIN
+        electric_vehicle.dim_date d ON e.date = d.date
+    WHERE
+        e.vehicle_category IN ('2-Wheelers', '4-Wheelers')
+    GROUP BY
+        d.fiscal_year, e.state
+),
+
+-- Calculate the total revenue for 2-Wheelers by year and state
+Revenue2WByYearState AS (
+    SELECT
+        fiscal_year,
+        state,
+        SUM(CASE 
+                WHEN vehicle_category = '2-Wheelers' THEN electric_vehicles_sold * 85000
+            END) AS revenue_2w
+    FROM
+        electric_vehicle.electric_vehicle_sales_by_state e
+    JOIN
+        electric_vehicle.dim_date d ON e.date = d.date
+    GROUP BY
+        d.fiscal_year, e.state
+),
+
+-- Calculate the growth rates
+GrowthRates AS (
+    SELECT
+        state,
+        MAX(CASE WHEN fiscal_year = 2024 THEN revenue_2w END) AS revenue_2024,
+        MAX(CASE WHEN fiscal_year = 2023 THEN revenue_2w END) AS revenue_2023,
+        MAX(CASE WHEN fiscal_year = 2022 THEN revenue_2w END) AS revenue_2022
+    FROM
+        Revenue2WByYearState
+    GROUP BY
+        state
+)
+
+-- Compute the growth rates for each state
+SELECT
+    state,
+    CASE 
+        WHEN revenue_2023 IS NOT NULL AND revenue_2023 > 0 THEN
+            (revenue_2024 - revenue_2023) / revenue_2023 * 100
+        ELSE
+            NULL
+    END AS growthrate_2w_24vs23,
+    
+    CASE 
+        WHEN revenue_2022 IS NOT NULL AND revenue_2022 > 0 THEN
+            (revenue_2024 - revenue_2022) / revenue_2022 * 100
+        ELSE
+            NULL
+    END AS growthrate_2w_24vs22
+FROM
+    GrowthRates;
+```

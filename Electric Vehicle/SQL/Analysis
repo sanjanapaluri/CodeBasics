@@ -1,1 +1,19 @@
+# Market Study for AtliQ Motors' EV/Hybrid Expansion in India
 
+#### Question 1: List the top 3 and bottom 3 makers for the fiscal years 2023 and 2024 in terms of the number of 2-wheelers sold
+
+```sql
+WITH RankedSales AS (
+    SELECT maker, 
+           SUM(electric_vehicles_sold) AS total_sold,
+           ROW_NUMBER() OVER (ORDER BY SUM(electric_vehicles_sold) DESC) AS rank_desc,
+           ROW_NUMBER() OVER (ORDER BY SUM(electric_vehicles_sold) ASC) AS rank_asc
+    FROM electric_vehicle.electric_vehicle_sales_by_makers
+    GROUP BY maker
+)
+SELECT maker, total_sold
+FROM RankedSales
+WHERE rank_desc <= 3
+   OR rank_asc <= 3
+ORDER BY total_sold DESC, rank_desc;
+```

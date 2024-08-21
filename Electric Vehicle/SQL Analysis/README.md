@@ -386,7 +386,7 @@ ORDER BY
 ![image](https://github.com/user-attachments/assets/0f74c25c-37fc-4097-9c95-27166989d354)
 
 ```sql
- ###First, calculate the total revenue for each state and year
+ ---First, calculate the total revenue for each state and year
 WITH RevenueByStateYear AS (
     SELECT
         d.fiscal_year,

@@ -287,6 +287,30 @@ ORDER BY
 LIMIT 10;
 ```
 
+## Changing date column  datatype 
+```
+SELECT * FROM electric_vehicle.dim_date;
+
+desc electric_vehicle.dim_date;
+select date from electric_vehicle.dim_date;
+update electric_vehicle.dim_date set date = replace(date,'-','/');
+update electric_vehicle.dim_date set date = date_format(str_to_date(date,'%d/%m/%Y'),'%Y-%m-%d');
+alter table electric_vehicle.dim_date modify column date date;
+
+
+desc electric_vehicle.electric_vehicle_sales_by_makers;
+select date from electric_vehicle.electric_vehicle_sales_by_makers;
+update electric_vehicle.electric_vehicle_sales_by_makers set date = replace(date,'-','/');
+update electric_vehicle.electric_vehicle_sales_by_makers set date = date_format(str_to_date(date,'%d/%m/%Y'),'%Y-%m-%d');
+alter table electric_vehicle.electric_vehicle_sales_by_makers modify column date date;
+
+desc electric_vehicle.electric_vehicle_sales_by_state;
+select date from electric_vehicle.electric_vehicle_sales_by_state;
+update electric_vehicle.electric_vehicle_sales_by_state set date = replace(date,'-','/');
+update electric_vehicle.electric_vehicle_sales_by_state set date = date_format(str_to_date(date,'%d/%m/%Y'),'%Y-%m-%d');
+alter table electric_vehicle.electric_vehicle_sales_by_state modify column date date;
+```
+
 ### Question 8 : What are the peak and low season months for EV sales based on the data from 2022 to 2024?
 
 ```sql
